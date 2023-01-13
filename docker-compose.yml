@@ -1,0 +1,53 @@
+version: '3'
+
+# docker-compose build (1x only if you edit the Dockerfile or files used by it)
+# docker-compose up    (everytime you start the pipeline)
+
+# a list of all containers you intend to use
+services:
+
+  # first: SQL DB
+  mongodb:          # name : also the hostname
+    image: mongo    # image downloaded from DockerHub
+    ports:
+    - 27017:27017       # maps port 5432 *inside* the container to port 5555 on my local machine
+                       # because port 5432 is already used on my local machine
+    # environment:       # set an environment variable (not needed for mongodb)
+    # - POSTGRES_PASSWORD=1234
+
+  # second: run Python
+  get_tweets_script:              # name
+    build: get_tweets_script/     # look for a Dockerfile here -> creates an image
+    volumes:               # this is how we get the python program + files in:
+    - ./get_tweets_script/:/app   # makes the karaokebot/ folder available in the container as app/
+    depends_on:            # this means that the postgres container is started then the karaokebot
+    - mongodb
+
+  # forth: ETL job
+  etl:              # name
+    build: etl_job/     # look for a Dockerfile here -> creates an image
+    volumes:               # this is how we get the python program + files in:
+    - ./etl_job/:/app   # makes the karaokebot/ folder available in the container as app/
+    depends_on:            # this means that the postgres container is started then the karaokebot
+    - mongodb
+    - postgresdb
+
+  # third: run Postgres
+  postgresdb:
+    image: postgres
+    ports:
+    - 5555:5432
+    environment:
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=1234
+    - POSTGRES_DB=twitter
+
+   
+
+ # fifth: slackbot 
+  slackbot:              # name
+    build: slack_bot/     # look for a Dockerfile here -> creates an image
+    volumes:               # this is how we get the python program + files in:
+    - ./slack_bot/:/app   # makes the karaokebot/ folder available in the container as app/
+    depends_on:            # this means that the postgres container is started then the karaokebot
+    - postgresdb
